@@ -224,11 +224,27 @@ implicit none
 	end do 
 	root=mid
 end subroutine bisection
-Subroutine savearray(filename,filelen,array,imax,jmax)
+
+subroutine filenum(str,num,output)
 implicit none
-integer,intent(in)::imax,jmax,filelen
+Integer,intent(in)::num
+character(*),intent(in)::str
+character(*),intent(out)::output
+
+if (num<10) then
+		output=str//char(48+num)//'.out'		!--------0 to 9------!
+	elseif (num<100) then
+		output=str//char(48+num/10)//char(48+num-10*(num/10))//'.out'		!--------10 to 99----!
+	elseif (num<1000) then
+		output=str//char(48+num/100)//char(48+num/10-10*(num/100))//char(48+num-10*(num/10))//'.out'	!--------100 to 999----!
+	endif
+end subroutine
+
+Subroutine savearray(filename,array,imax,jmax)
+implicit none
+integer,intent(in)::imax,jmax
 real,dimension(imax,jmax),intent(in)::array
-character(filelen),intent(in)::filename
+character(*),intent(in)::filename
 integer::i,j
 open(unit=2,file=filename)
 do i=1,imax
@@ -239,11 +255,11 @@ end do
 close(2)
 end subroutine
 
-Subroutine savevector(filename,filelen,vector,imax)
+Subroutine savevector(filename,vector,imax)
 implicit none
-integer,intent(in)::imax,filelen
+integer,intent(in)::imax
 real,dimension(imax),intent(in)::vector
-character(filelen),intent(in)::filename
+character(*),intent(in)::filename
 integer::i
 open(unit=2,file=filename)
 do i=1,imax
@@ -252,27 +268,60 @@ end do
 close(2)
 end subroutine
 
-Subroutine saveinteger(filename,filelen,param)
+Subroutine saveinteger(filename,param)
 implicit none
-integer,intent(in)::filelen
 integer,intent(in)::param
-character(filelen),intent(in)::filename
+character(*),intent(in)::filename
 open(unit=2,file=filename)
 write(2,*) param
 close(2)
 end subroutine
 
-Subroutine savereal(filename,filelen,param)
+Subroutine savereal(filename,param)
 implicit none
-integer,intent(in)::filelen
 real,intent(in)::param
-character(filelen),intent(in)::filename
+character(*),intent(in)::filename
 open(unit=2,file=filename)
 write(2,*) param
 close(2)
 end subroutine
 
-Subroutine printenddatetime()
+subroutine tic(time_array)
+integer, dimension(8),intent(out) :: time_array
+CALL date_and_time(VALUES=time_array)
+end subroutine tic
+
+subroutine toc(time_array)
+implicit none
+integer, dimension(8),intent(in) :: time_array
+integer, dimension(8) :: time_array2
+integer elapsedHours,elapsedMinutes,elapsedSeconds,elapsedMs
+CALL date_and_time(VALUES=time_array2)
+
+	CALL date_and_time(VALUES=time_array2)
+	elapsedHours=24*(time_array2(3)-time_array(3))+(time_array2(5)-time_array(5))
+	elapsedMinutes=time_array2(6)-time_array(6)
+	elapsedSeconds=time_array2(7)-time_array(7)
+	elapsedMs=time_array2(8)-time_array(8)
+	
+	if (elapsedMs<0) then
+		elapsedMs=elapsedMs+1000
+		elapsedSeconds=elapsedSeconds-1
+	end if
+	if (elapsedSeconds<0) then
+		elapsedSeconds=elapsedSeconds+60
+		elapsedMinutes=elapsedMinutes-1
+	end if
+	if (elapsedMinutes<0) then
+		elapsedMinutes=elapsedMinutes+60
+		elapsedHours=elapsedHours-1
+	end if
+	
+	print *, 'toctime:', elapsedHours,'hrs,',elapsedMinutes,'mins',elapsedSeconds,'sec',elapsedMs,'ms'
+end subroutine toc
+
+Subroutine printdatetime(when)
+character(*),intent(in)::when
 integer, dimension(8) :: time_array
 integer hours, minutes,seconds,milliseconds,day,elapsedHours,elapsedMinutes,elapsedSeconds,elapsedMs
 CALL date_and_time(VALUES=time_array)
@@ -282,20 +331,36 @@ minutes=time_array(6)
 seconds=time_array(7)
 milliseconds=time_array(8)
 !-----Print the end time to screen-----!
-print *, 'ended: day', day,'time:', hours,':', minutes,':', seconds
-end Subroutine printenddatetime
+print *,when, ': day', day,'time:', hours,':', minutes,':', seconds
+end Subroutine printdatetime
 
-subroutine linspace(x, a, b, n)
+subroutine linspace(x, dx, a, b, n)
 implicit none
   integer, intent(in)   :: n
   real,dimension(n),intent(out) :: x
   real,intent(in)  :: a
   real,intent(in)  :: b
-  real :: dx
+  real,intent(out) :: dx
   integer   :: i
 	dx = (b-a) / (n-1.)
 	do i=1,n
 	  x(i) = (i-1)*dx+a
 	enddo
 end subroutine linspace 
+
+subroutine trapz(dx, y, ny, integral)
+    !-----Calculates the integral of an array y with respect to x using the trapezoid approximation.
+	implicit none
+	integer,intent(in)::ny
+    real, dimension(ny),intent(in)  ::y
+	real,intent(in)  :: dx
+    real   ,intent(out)           :: integral
+	integer::i
+    !-----Integrate using the trapezoidal rule
+	integral=(y(1)+y(ny))*dx*0.5
+	do i=2,ny-1
+		integral=integral+y(i)*dx
+	enddo
+end subroutine
+
 end module
