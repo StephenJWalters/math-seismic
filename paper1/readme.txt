@@ -7,4 +7,4 @@ Adaptation of the Matlab code to Python and matplotlib also should be straightfo
 In each case the files should be placed in a folder, and a subfolder "data" should be created.
 The pgi compile commands are placed in comments at the start of each .f90 fortran file.
 The support module provides subroutines which support the main file.
-the mmul module provides a fast matrix multiplication routine which runs on the GPU. This was adapted from the PGI Compiler user guide. It requires that any matrices used have number of rows and columns in whole multiples of 16. This avoids "if" statments and make the routine simpler and faster, for a small cost in flexibility.
+the mmul module provides a fast matrix multiplication routine which runs on the GPU. This was adapted from the PGI Compiler user guide. It requires that any matrices used have number of rows and columns in whole multiples of 16. This avoids "if" statements and make the routine simpler and faster, for a small cost in flexibility.
