@@ -18,7 +18,7 @@ real,parameter::vp1=1.5,vs1=0.5,mu=vs1**2,lambda=vp1**2-2*vs1**2		!----solution 
 real,parameter::a=0.1,F0=1.,G0=1.,alpha=sqrt(mu),beta=sqrt((lambda+2*mu)),maxK=90.
 integer::ik,ix,iy,it,i
 character(16)::filename
-real::r,dk
+real::r,dk,dx,dy,dt
 
 !-----timing  variables
 integer hours, minutes,seconds,milliseconds,day,elapsedHours,elapsedMinutes,elapsedSeconds,elapsedMs,dw
@@ -34,15 +34,15 @@ milliseconds=time_array(8)
 !-----Print the start time to screen-----!
 print *, 'started: day', day,': time', hours,':', minutes,':', seconds
 
-call linspace(x, -pi-1.,pi-1., nx)	!-----offset the initial pulse from (0,0) to (1,1) by moving the coordinate system
-call linspace(y, -pi-1.,pi-1., ny)
-call linspace(t,0.,4., nt)
-call linspace(k,0.,maxK,nk)
-dk=maxK/(nk-1.)
+call linspace(x,dx, -pi-1.,pi-1., nx)	!-----offset the initial pulse from (0,0) to (1,1) by moving the coordinate system
+call linspace(y,dy, -pi-1.,pi-1., ny)
+call linspace(t,dt,0.,4., nt)
+call linspace(k,dk,0.,maxK,nk)
+print*,'dkdiff: ',dk-maxK/(nk-1.)
 
-call savevector('xlin.out',len('xlin.out'),x,nx)
-call savevector('ylin.out',len('ylin.out'),y,ny)
-call savevector('tlin.out',len('tlin.out'),t,nt)
+call savevector('xlin.out',x,nx)
+call savevector('ylin.out',y,ny)
+call savevector('tlin.out',t,nt)
 
 do ik=1,nk
 	do it=1,nt
@@ -90,7 +90,7 @@ do ix=1,nx
 enddo
 do it=1,nt
 	filename='data/umag'//char(48+it)//'.out'
-	call savearray(filename,len(filename),Umag(:,:,it),nx,ny)
+	call savearray(filename,Umag(:,:,it),nx,ny)
 enddo
 
 call printelapsedtime(day,hours,minutes,seconds,milliseconds)

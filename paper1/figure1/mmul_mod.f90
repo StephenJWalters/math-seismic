@@ -25,7 +25,7 @@ contains
     ! Fill the submatrices
     ! Each of the 16x16 threads in the thread block
     ! loads one element of Asub and Bsub
-     Asub(tx,ty) = A(i,kb+ty-1)
+    Asub(tx,ty) = A(i,kb+ty-1)
     Bsub(tx,ty) = B(kb+tx-1,j)
     ! Wait until all elements are filled
     call syncthreads()
@@ -33,7 +33,7 @@ contains
     ! Each of the 16x16 threads accumulates the
     ! dot product for its element of C(i,j)
     do k = 1,16
-      Cij = Cij + Asub(tx,k) * Bsub(k,ty)
+		Cij = Cij + Asub(tx,k) * Bsub(k,ty)
     enddo
     ! Synchronize to make sure all threads are done
     ! reading the submatrices before overwriting them
@@ -73,5 +73,292 @@ contains
   C(1:N,1:L) = Cdev
   deallocate( Adev, Bdev, Cdev )
  end subroutine mmul
+ 
+ ! The host routine to drive the double matrix multiplication
+ subroutine mmul2( A, B, C, D)
+  real, dimension(:,:) :: A, B, C, D
+  ! allocatable device arrays
+  real, device, allocatable, dimension(:,:) :: Adev,Bdev,Cdev,Ddev,Tempdev
+  ! dim3 variables to define the grid and block shapes
+  type(dim3) :: dimGrid, dimBlock
+
+  ! Get the array sizes
+  i = size( A, 1 )
+  m = size( A, 2 )
+  n = size( B, 2 )
+  j = size( C, 2 )
+  ! Allocate the device arrays
+  allocate( Adev(i,m), Bdev(m,n), Tempdev(i,n), Cdev(n,j), Ddev(i,j) )
+
+  ! Copy A and B to the device
+  Adev = A(1:i,1:m)
+  Bdev(:,:) = B(1:m,1:n)
+  Cdev(:,:) = C(1:n,1:j)
+
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D(1:i,1:j) = Ddev
+  deallocate( Adev, Bdev, Cdev, Ddev, Tempdev)
+ end subroutine mmul2
+  
+  ! The host routine to drive the double matrix multiplication twice
+ subroutine mmul22( A, B, B2, C, D, D2)
+  real, dimension(:,:) :: A, B, B2, C, D, D2
+  ! allocatable device arrays
+  real, device, allocatable, dimension(:,:) :: Adev,Bdev,Cdev,Ddev,Tempdev
+  ! dim3 variables to define the grid and block shapes
+  type(dim3) :: dimGrid, dimBlock
+
+  ! Get the array sizes
+  i = size( A, 1 )
+  m = size( A, 2 )
+  n = size( B, 2 )
+  j = size( C, 2 )
+  ! Allocate the device arrays
+  allocate( Adev(i,m), Bdev(m,n), Tempdev(i,n), Cdev(n,j), Ddev(i,j))
+
+  ! Copy A and B to the device
+  Adev = A(1:i,1:m)
+  Bdev(:,:) = B(1:m,1:n)
+  Cdev(:,:) = C(1:n,1:j)
+!first transform
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+  ! Copy the results back
+  D(1:i,1:j) = Ddev
+!second transform
+
+  Bdev(:,:) = B2(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D2(1:i,1:j) = Ddev
+  deallocate( Adev, Bdev, Cdev, Ddev, Tempdev)
+ end subroutine mmul22
+ 
+   ! The host routine to drive the double matrix multiplication four times
+ subroutine mmul24( A, B, B2, B3, B4, C, D, D2, D3, D4)
+  real, dimension(:,:) :: A, B, B2, B3, B4, C, D, D2, D3, D4
+  ! allocatable device arrays
+  real, device, allocatable, dimension(:,:) :: Adev,Bdev,Cdev,Ddev,Tempdev
+  ! dim3 variables to define the grid and block shapes
+  type(dim3) :: dimGrid, dimBlock
+
+  ! Get the array sizes
+  i = size( A, 1 )
+  m = size( A, 2 )
+  n = size( B, 2 )
+  j = size( C, 2 )
+  ! Allocate the device arrays
+  allocate( Adev(i,m), Bdev(m,n), Tempdev(i,n), Cdev(n,j), Ddev(i,j))
+
+  ! Copy A and B to the device
+  Adev = A(1:i,1:m)
+  Bdev(:,:) = B(1:m,1:n)
+  Cdev(:,:) = C(1:n,1:j)
+!first transform
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+  ! Copy the results back
+  D(1:i,1:j) = Ddev
+!second transform
+
+  Bdev(:,:) = B2(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D2(1:i,1:j) = Ddev
+  
+  !third transform
+
+  Bdev(:,:) = B3(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D3(1:i,1:j) = Ddev
+  
+  !fourth transform
+
+  Bdev(:,:) = B4(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D4(1:i,1:j) = Ddev
+  
+  
+  deallocate( Adev, Bdev, Cdev, Ddev, Tempdev)
+ end subroutine mmul24
+ 
+ subroutine mmul26( A, B, B2, B3, B4, B5, B6, C, D, D2, D3, D4, D5, D6)
+  real, dimension(:,:) ::  A, B, B2, B3, B4, B5, B6, C, D, D2, D3, D4, D5, D6
+  ! allocatable device arrays
+  real, device, allocatable, dimension(:,:) :: Adev,Bdev,Cdev,Ddev,Tempdev
+  ! dim3 variables to define the grid and block shapes
+  type(dim3) :: dimGrid, dimBlock
+
+  ! Get the array sizes
+  i = size( A, 1 )
+  m = size( A, 2 )
+  n = size( B, 2 )
+  j = size( C, 2 )
+  ! Allocate the device arrays
+  allocate( Adev(i,m), Bdev(m,n), Tempdev(i,n), Cdev(n,j), Ddev(i,j))
+
+  ! Copy A and B to the device
+  Adev = A(1:i,1:m)
+  Bdev(:,:) = B(1:m,1:n)
+  Cdev(:,:) = C(1:n,1:j)
+!first transform
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+  ! Copy the results back
+  D(1:i,1:j) = Ddev
+!second transform
+
+  Bdev(:,:) = B2(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D2(1:i,1:j) = Ddev
+  
+  !third transform
+
+  Bdev(:,:) = B3(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D3(1:i,1:j) = Ddev
+  
+  !fourth transform
+
+  Bdev(:,:) = B4(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D4(1:i,1:j) = Ddev
+  
+  !fifth transform
+
+  Bdev(:,:) = B5(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D5(1:i,1:j) = Ddev
+  
+  !sixth transform
+
+  Bdev(:,:) = B6(1:m,1:n)
+  ! Create the grid and block dimensions - first matmul
+  dimGrid = dim3( i/16, n/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Adev, Bdev, Tempdev, i, m, n)
+  
+  ! Create the grid and block dimensions - second matmul
+  dimGrid = dim3( i/16, j/16, 1 )
+  dimBlock = dim3( 16, 16, 1 )
+  call mmul_kernel<<<dimGrid,dimBlock>>>( Tempdev, Cdev, Ddev, i, n, j)
+
+  ! Copy the results back and free up memory
+  D6(1:i,1:j) = Ddev
+  
+  
+  deallocate( Adev, Bdev, Cdev, Ddev, Tempdev)
+ end subroutine mmul26
+ 
+ 
  end module mmul_mod
 
